@@ -1,0 +1,83 @@
+// 
+// Decompiled by Procyon v0.5.36
+// 
+
+package org.spongepowered.asm.mixin.injection.points;
+
+import org.spongepowered.asm.mixin.injection.struct.MemberInfo;
+import com.google.common.base.Strings;
+import org.spongepowered.asm.mixin.injection.struct.InjectionPointData;
+import java.util.Iterator;
+import java.util.ArrayList;
+import java.util.Collection;
+import java.util.ListIterator;
+import org.spongepowered.asm.lib.tree.MethodInsnNode;
+import org.spongepowered.asm.lib.tree.AbstractInsnNode;
+import org.spongepowered.asm.lib.tree.TypeInsnNode;
+import org.spongepowered.asm.lib.tree.InsnList;
+import org.spongepowered.asm.mixin.injection.InjectionPoint;
+
+@AtCode("NEW")
+public class BeforeNew extends InjectionPoint
+{
+    private final /* synthetic */ String target;
+    private final /* synthetic */ int ordinal;
+    private final /* synthetic */ String desc;
+    
+    protected boolean findCtor(final InsnList list, final TypeInsnNode typeInsnNode) {
+        final ListIterator<AbstractInsnNode> iterator = list.iterator(list.indexOf(typeInsnNode));
+        while (iterator.hasNext()) {
+            final AbstractInsnNode abstractInsnNode = iterator.next();
+            if (abstractInsnNode instanceof MethodInsnNode && abstractInsnNode.getOpcode() == 183) {
+                final MethodInsnNode methodInsnNode = (MethodInsnNode)abstractInsnNode;
+                if ("<init>".equals(methodInsnNode.name) && methodInsnNode.owner.equals(typeInsnNode.desc) && methodInsnNode.desc.equals(this.desc)) {
+                    return true;
+                }
+                continue;
+            }
+        }
+        return false;
+    }
+    
+    private boolean matchesOwner(final TypeInsnNode typeInsnNode) {
+        return this.target == null || this.target.equals(typeInsnNode.desc);
+    }
+    
+    public boolean hasDescriptor() {
+        return this.desc != null;
+    }
+    
+    @Override
+    public boolean find(final String s, final InsnList list, final Collection<AbstractInsnNode> collection) {
+        boolean b = false;
+        int n = 0;
+        final ArrayList<TypeInsnNode> list2 = new ArrayList<TypeInsnNode>();
+        final ArrayList<TypeInsnNode> list3 = (ArrayList<TypeInsnNode>)((this.desc != null) ? list2 : collection);
+        for (final AbstractInsnNode abstractInsnNode : list) {
+            if (abstractInsnNode instanceof TypeInsnNode && abstractInsnNode.getOpcode() == 187 && this.matchesOwner((TypeInsnNode)abstractInsnNode)) {
+                if (this.ordinal == -1 || this.ordinal == n) {
+                    list3.add((TypeInsnNode)abstractInsnNode);
+                    b = (this.desc == null);
+                }
+                ++n;
+            }
+        }
+        if (this.desc != null) {
+            for (final TypeInsnNode typeInsnNode : list2) {
+                if (this.findCtor(list, typeInsnNode)) {
+                    collection.add(typeInsnNode);
+                    b = true;
+                }
+            }
+        }
+        return b;
+    }
+    
+    public BeforeNew(final InjectionPointData injectionPointData) {
+        super(injectionPointData);
+        this.ordinal = injectionPointData.getOrdinal();
+        final MemberInfo andValidate = MemberInfo.parseAndValidate(Strings.emptyToNull(injectionPointData.get("class", injectionPointData.get("target", "")).replace('.', '/')), injectionPointData.getContext());
+        this.target = andValidate.toCtorType();
+        this.desc = andValidate.toCtorDesc();
+    }
+}
